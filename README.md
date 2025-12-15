@@ -13,7 +13,7 @@ O **Anhangá** é uma ferramenta de **CLI (Command-Line Interface)** desenvolvid
 
 Ele atua como um **analista virtual**, ingerindo dados brutos (Pix, URLs), enriquecendo-os por meio de múltiplas fontes **OSINT** e aplicando **Inteligência Artificial local** para gerar **dossiês de inteligência completos**.
 
-O projeto foi concebido para combater a chamada *"fadiga de abas"*, centralizando em um único terminal atividades que normalmente demandariam horas de coleta e correlação manual.
+O projeto foi concebido para combater a chamada *"fadiga de abas"*, centralizando em um único terminal atividades que normalmente demandaria mais tempo de coleta e correlação manual.
 
 ---
 
