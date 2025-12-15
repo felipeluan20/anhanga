@@ -4,6 +4,8 @@ import sys
 import os
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt, Confirm # <--- O Python precisa disso
+from rich.markdown import Markdown
 
 # Setup de Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +18,8 @@ from modules.infra.analyzer import ContractAnalyzer
 from modules.fincrime.validator import LaranjaHunter
 from modules.graph.builder import GraphBrain
 from core.database import CaseManager
-from core.config import ConfigManager # <--- NOVO GERENCIADOR
+from modules.reporter.writer import AIReporter 
+from core.config import ConfigManager 
 
 app = typer.Typer(help="Anhangá - Cyber Defense Framework")
 console = Console()
@@ -24,7 +27,7 @@ db = CaseManager()
 cfg = ConfigManager()
 
 @app.command()
-def intro():
+def print_banner():
     """Exibe o banner e status do sistema."""
     banner = """
     [bold green]
@@ -135,6 +138,96 @@ def graph():
         brain.connect_entities(rel['source'], rel['target'], relation_type=rel['type'])
         
     brain.plot_investigation()
+
+@app.command()
+def investigate():
+    """Modo Guiado: Inicia uma investigação completa passo-a-passo."""
+    print_banner()
+    
+    # 1. Setup
+    if Confirm.ask("[bold yellow]1. Deseja iniciar uma NOVA operação (Isso limpará dados anteriores)?[/bold yellow]"):
+        db.nuke()
+        console.print("[green][*] Memória limpa.[/green]")
+    
+    # 2. Coleta Financeira (Pix)
+    console.print("\n[bold cyan]--- FASE 1: RASTREIO FINANCEIRO ---[/bold cyan]")
+    pix_code = Prompt.ask("Cole o [bold]Código Pix (Copia e Cola)[/bold] ou pressione Enter para pular")
+    
+    alvo_financeiro = None
+    if pix_code:
+        with console.status("[bold blue]Decodificando payload EMV...[/bold blue]"):
+            decoder = PixForensics(pix_code)
+            data = decoder.analyze()
+            alvo_financeiro = data['merchant_name']
+            
+            # Salva
+            db.add_entity(data['merchant_name'], data['pix_key'], role="Recebedor Pix")
+        
+        console.print(Panel(f"Alvo Identificado: [bold]{data['merchant_name']}[/bold]\nDoc: {data['pix_key']}", border_style="green"))
+
+    # 3. Coleta de Infraestrutura (URL)
+    console.print("\n[bold cyan]--- FASE 2: INTELIGÊNCIA DE INFRAESTRUTURA ---[/bold cyan]")
+    url = Prompt.ask("Digite a [bold]URL do Site de Apostas[/bold] (ex: tigrinho.io) ou Enter para pular")
+    
+    if url:
+        with console.status("[bold blue]Rodando InfraHunter (Whois, Shodan, VT, CRT)...[/bold blue]"):
+            # Inicializa Ferramentas
+            hunter = InfraHunter(url)
+            vt_intel = VirusTotalIntel(cfg.get_key("virustotal"))
+            whois_tool = WhoisIntel()
+            shodan_key = cfg.get_key("shodan")
+
+            # Executa Coleta
+            ip = hunter.resolve_ip()
+            hash_val, _ = hunter.get_favicon_hash()
+            
+            # Whois
+            w_data = whois_tool.get_whois(hunter.domain)
+            whois_txt = f"Registrar: {w_data.get('registrar')}\nData: {w_data.get('creation_date')}"
+            
+            # VirusTotal
+            vt_res = "N/A"
+            if ip and vt_intel.key:
+                vt_data = vt_intel.analyze_ip(ip)
+                if vt_data: vt_res = f"{vt_data.get('verdict')} - {vt_data.get('owner')}"
+
+            # Compila Relatório Técnico
+            report_tec = f"IP: {ip}\nHash: {hash_val}\nWHOIS: {whois_txt}\nVT: {vt_res}"
+            
+            # Salva
+            db.add_infra(url, ip=str(ip), extra_info=report_tec)
+            
+            # Cria Vínculo Automático se tivermos Pix e URL
+            if alvo_financeiro:
+                db.add_relation(alvo_financeiro, url, "recebeu_pagamento_de")
+
+        console.print(Panel(report_tec, title="Infraestrutura Mapeada", border_style="green"))
+
+    # 4. Análise de IA (O Grande Final)
+    console.print("\n[bold cyan]--- FASE 3: ANÁLISE COGNITIVA (OLLAMA) ---[/bold cyan]")
+    with console.status("[bold purple]Ollama está lendo o caso e escrevendo o dossiê...[/bold purple]"):
+        reporter = AIReporter()
+        case_data = db.get_full_case() # Pega tudo que coletamos
+        
+        # A Mágica acontece aqui
+        dossie = reporter.generate_dossier(case_data)
+        
+        # Salva em arquivo
+        filename = reporter.save_report(dossie)
+    
+    console.print(Panel(Markdown(dossie), title="Relatório de Inteligência Gerado", border_style="magenta"))
+    console.print(f"[bold green]Arquivo salvo: {filename}[/bold green]")
+
+    # 5. Visualização
+    if Confirm.ask("\n[bold yellow]Deseja abrir o Mapa de Conexões (Grafo)?[/bold yellow]"):
+        # Aqui chamamos o builder do PyVis
+        console.print("[blue]Gerando HTML...[/blue]")
+        # (Reutiliza a lógica do comando graph existente)
+        brain = GraphBrain()
+        for ent in case_data['entities']: brain.add_fincrime_data(ent['name'], ent['document'])
+        for inf in case_data['infra']: brain.add_infra_data(inf['domain'], inf['ip'])
+        for rel in case_data['relations']: brain.connect_entities(rel['source'], rel['target'], rel['type'])
+        brain.plot_investigation()
 
 if __name__ == "__main__":
     app()
