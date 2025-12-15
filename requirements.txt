@@ -1,0 +1,9 @@
+typer
+rich
+requests
+beautifulsoup4
+ollama
+mmh3
+shodan
+python-whois
+pyvis
