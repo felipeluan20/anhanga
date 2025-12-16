@@ -14,13 +14,10 @@ class InvestigationEngine:
         Carrega dinamicamente um módulo (ex: 'fincrime', 'pix_decoder').
         """
         try:
-            # CORREÇÃO: Removemos 'anhanga.' do início
             module_path = f"modules.{category}.{module_name}"
             
-            # Importa o arquivo
             mod = importlib.import_module(module_path)
             
-            # Procura a classe correta dentro do arquivo
             target_class = None
             for attribute_name in dir(mod):
                 attribute = getattr(mod, attribute_name)
@@ -33,7 +30,6 @@ class InvestigationEngine:
             if not target_class:
                 raise ImportError(f"Nenhuma classe AnhangáModule encontrada em {module_path}")
 
-            # Instancia a classe
             instance = target_class()
             self.loaded_modules[f"{category}.{module_name}"] = instance
             return instance

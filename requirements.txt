@@ -7,3 +7,5 @@ mmh3
 shodan
 python-whois
 pyvis
+crcmod
+mmh3

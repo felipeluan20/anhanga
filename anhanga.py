@@ -6,12 +6,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich.markdown import Markdown
-
-# Setup de Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
-
-# --- IMPORTS v2.0 (ENGINE) ---
 from core.engine import InvestigationEngine
 from core.config import ConfigManager
 from core.database import CaseManager
@@ -22,7 +18,6 @@ console = Console()
 db = CaseManager()
 cfg = ConfigManager()
 
-# Inicializa a Engine v2.0 Global
 engine = InvestigationEngine()
 
 @app.command()
@@ -74,28 +69,42 @@ def investigate():
     url = Prompt.ask("Digite a [bold]URL[/bold] do alvo (ex: tigrinho.io) ou Enter p/ pular")
     
     if url:
-        # Executa o Pipeline v2.0 (Muito mais limpo!)
         results = engine.run_pipeline(url, pipeline_infra)
         
-        # Processa e Salva Resultados
         info_buffer = ""
         ip_alvo = "N/A"
         
         for res in results:
-            # Exibe cada evidência encontrada
             icon = "🔍" if "Scraping" in res['title'] else "🌐"
             console.print(f"[{res['confidence']}]{icon} {res['title']}: {res['content']}")
             
-            # Monta o buffer para salvar no banco
             info_buffer += f"{res['title']}: {res['content']}\n"
             
             if res['title'] == "Endereço IP":
                 ip_alvo = res['content']
 
-        # Salva no Banco de Dados
         db.add_infra(url, ip=ip_alvo, extra_info=info_buffer)
 
-    # --- FASE 4: RELATÓRIO ---
+    console.print("\n[bold cyan]--- VALIDAÇÃO DE IDENTIDADE ---[/bold cyan]")
+    email_alvo = Prompt.ask("Digite um [bold]E-mail[/bold] suspeito (ex: achado no Whois/Scraping) ou Enter p/ pular")
+        
+    if email_alvo:
+            pipeline_identity = ['identity.checker']
+            results = engine.run_pipeline(email_alvo, pipeline_identity)
+            
+            for res in results:
+                icon = "👤"
+                if res['title'] == "Gravatar Encontrado": icon = "📸"
+                if res['title'] == "Spotify": icon = "🎵"
+                
+                console.print(Panel(f"{icon} {res['content']}", title=res['title'], border_style="blue"))
+                
+                db.add_entity(res['content'], "Identidade Digital", role=f"Vínculo: {email_alvo}")
+    if email_alvo:
+            pipeline_identity = ['identity.checker', 'identity.leaks'] 
+            results = engine.run_pipeline(email_alvo, pipeline_identity)
+
+    # --- FASE 5: RELATÓRIO ---
     console.print("\n[bold cyan]--- ANÁLISE COGNITIVA (OLLAMA) ---[/bold cyan]")
     if Confirm.ask("Gerar relatório com IA?"):
         with console.status("[bold purple]Escrevendo dossiê...[/bold purple]"):

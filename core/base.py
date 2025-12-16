@@ -8,14 +8,12 @@ class AnhangáModule(ABC):
     Classe base para todos os módulos do Anhangá v2.0.
     """
     def __init__(self):
-        # Metadados do módulo
         self.meta = {
             "name": self.__class__.__name__,
             "description": "Módulo genérico",
             "author": "Anhangá Core",
             "version": "1.0"
         }
-        # Onde os resultados serão armazenados
         self.results: List[Dict[str, Any]] = []
 
     @abstractmethod
