@@ -1,54 +1,66 @@
+# Arquivo: anhanga/modules/identity/leaks.py
 import requests
 from core.base import AnhangáModule
+from core.config import ConfigManager
 
 class LeakModule(AnhangáModule):
     def __init__(self):
         super().__init__()
         self.meta = {
             "name": "LeakHunter",
-            "description": "Busca vazamentos e CNPJs vinculados",
+            "description": "Verificação de exposição de credenciais e vazamentos",
             "version": "2.1"
         }
+        self.cfg = ConfigManager()
 
     def run(self, email: str) -> bool:
-        self.add_evidence("Alvo", email, "high")
+        self.add_evidence("Alvo Analisado", email, "high")
         
-        # 1. Busca em Leaks (BreachDirectory - Free Tier)
-        self._check_breach_directory(email)
+        self._run_google_dorks(email)
         
-        # 2. Busca Corporativa (Se for e-mail de domínio próprio)
-        if "@gmail" not in email and "@outlook" not in email:
+        # 2. Busca de CNPJ via Domínio 
+        if self._is_corporate_email(email):
             domain = email.split("@")[1]
-            self._check_cnpj_link(domain)
+            self._check_corporate_link(domain)
             
         return True
 
-    def _check_breach_directory(self, email):
-        """Consulta API pública de vazamentos."""
-        try:
-            # API Pública do BreachDirectory (RapidAPI key seria ideal, mas tem endpoint free limitado)
-            url = f"https://breachdirectory.p.rapidapi.com/" 
-            # Como fallback, vamos usar um Dork do Google que acha listas de vazamento indexadas
-            
-            self.add_evidence("Dork de Vazamento", f'site:pastebin.com "{email}"', "medium")
-            self.add_evidence("Dork de CPF", f'"{email}" CPF', "medium")
-            
-        except Exception as e:
-            pass
+    def _is_corporate_email(self, email):
+        """Filtra provedores gratuitos comuns."""
+        free_providers = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "uol.com.br", "bol.com.br", "icloud.com"]
+        domain = email.split("@")[1].lower()
+        return domain not in free_providers
 
-    def _check_cnpj_link(self, domain):
-        """Tenta achar CNPJ dono do domínio via BrasilAPI."""
-        try:
-            url = f"https://brasilapi.com.br/api/cnpj/v1/{domain}" 
+    def _run_google_dorks(self, email):
+        """Gera links de inteligência para busca manual em bases indexadas."""
+        dorks = {
+            "Vazamento Pastebin": f'site:pastebin.com "{email}"',
+            "Exposição de Arquivos": f'filetype:txt OR filetype:csv "{email}"',
+            "Vínculo com CPF": f'"{email}" CPF',
+            "Listas de Combo": f'"{email}" combo list'
+        }
+        
+        report_content = "Links para verificação manual (Google Hacking):\n"
+        for title, query in dorks.items():
+            url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
+            report_content += f"- {title}: {url}\n"
             
-            # Vamos usar o Whois para pegar o documento do dono
+        self.add_evidence("Google Dorking (Leaks)", report_content, "medium")
+
+    def _check_corporate_link(self, domain):
+        try:
             import whois
             w = whois.whois(domain)
             
-            if w.org:
-                self.add_evidence("Dono do Domínio (Whois)", w.org, "high")
+            info = []
+            if w.org: info.append(f"Organização: {w.org}")
+            if w.emails: info.append(f"Emails de Registro: {w.emails}")
+            if w.creation_date: info.append(f"Criação: {w.creation_date}")
             
-            self.add_evidence("Sugestão Investigativa", f"Pesquisar CNPJ da empresa '{domain}' para revelar QSA (Sócios).", "high")
+            if info:
+                self.add_evidence("Domínio Corporativo", "\n".join(info), "high")
+            else:
+                self.add_evidence("Domínio Corporativo", "Whois protegido ou sem dados claros.", "low")
 
-        except:
+        except Exception as e:
             pass

@@ -1,63 +1,100 @@
-# Arquivo: anhanga/modules/fincrime/pix_decoder.py
 import crcmod
-from core.base import AnhangáModule # <--- Import Corrigido
+from core.base import AnhangáModule
 
 class PixModule(AnhangáModule):
     def __init__(self):
         super().__init__()
         self.meta = {
             "name": "Pix Forensics Decoder",
-            "description": "Decodifica payload EMV BR Code",
-            "version": "2.0"
+            "description": "Parser EMV/BR Code com validação CRC16 e extração recursiva",
+            "version": "2.1 (Production)"
         }
 
     def run(self, target_pix: str) -> bool:
-        try:
-            if "br.gov.bcb.pix" not in target_pix:
-                self.add_evidence("Erro", "Código Pix inválido (não contém br.gov.bcb.pix)", "high")
-                return False
+        raw_pix = target_pix.strip()
+        
+        # 1. Validação CRC16 (A prova matemática de integridade)
+        if not self._verify_crc16(raw_pix):
+            self.add_evidence("Integridade", "❌ CRC16 Inválido (Código corrompido ou adulterado)", "high")
 
-            # Lógica de Extração Resumida
-            # Na prática, você colaria sua lógica de parsing detalhada aqui
-            # Vou extrair apenas o básico para testar a arquitetura
+        # 2. Parsing TLV (Tag-Length-Value)
+        try:
+            emv_data = self._parse_tlv(raw_pix)
             
-            # Simulação de Extração baseada no target_pix (para teste)
-            # Se quiser, podemos colar o parser completo do CRC16 aqui depois
-            data = {
-                "merchant_name": self._extract_field(target_pix, "59"),
-                "merchant_city": self._extract_field(target_pix, "60"),
-                "pix_key": self._extract_key(target_pix)
-            }
-            
-            self.add_evidence("Nome Recebedor", data['merchant_name'], "high")
-            self.add_evidence("Cidade", data['merchant_city'], "medium")
-            self.add_evidence("Chave Pix", data['pix_key'], "high")
-            
+            # 3. Extração Inteligente de Campos
+            self._analyze_emv_data(emv_data)
             return True
 
         except Exception as e:
-            self.add_evidence("Erro Crítico", str(e), "high")
+            self.add_evidence("Erro de Parsing", f"Falha ao estruturar dados EMV: {str(e)}", "high")
             return False
 
-    def _extract_field(self, payload, id_tag):
-        # Função auxiliar simples para extrair campos EMV sem CRC complexo por enquanto
+    def _verify_crc16(self, payload):
+        """Calcula o CRC16-CCITT (0x1021) conforme norma do Banco Central."""
         try:
-            start = payload.find(id_tag)
-            if start == -1: return "N/A"
-            length = int(payload[start+2:start+4])
-            return payload[start+4:start+4+length]
-        except: return "N/A"
+            # O CRC são os últimos 4 caracteres. Para validar, removemos eles e calculamos.
+            # O padrão é terminar com '6304'.
+            if "6304" not in payload: return False
+            
+            crc_pivot = payload.rfind("6304")
+            data_to_check = payload[:crc_pivot+4] 
+            provided_crc = payload[crc_pivot+4:]
+            
+            crc16_func = crcmod.mkCrcFun(0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
+            calculated_crc = hex(crc16_func(data_to_check.encode('utf-8')))[2:].upper().zfill(4)
+            
+            return calculated_crc == provided_crc
+        except:
+            return False
 
-    def _extract_key(self, payload):
-        # Tenta achar a chave dentro do campo 26
-        try:
-            start_26 = payload.find("26")
-            if start_26 != -1:
-                # Pula ID(2) + Len(2)
-                sub_payload = payload[start_26+4:] 
-                # Procura sub-ID 01 (chave) dentro do campo 26
-                # Nota: Isso é simplificado. O ideal é o parser completo.
-                # Mas para validar a arquitetura engine.py, serve.
-                return "Chave Detectada (Parser v2)"
-        except: pass
-        return "Desconhecido"
+    def _parse_tlv(self, payload):
+        """Lê a estrutura Tag-Length-Value recursivamente."""
+        data = {}
+        i = 0
+        while i < len(payload):
+            tag = payload[i:i+2]
+            i += 2
+            
+            try:
+                length = int(payload[i:i+2])
+            except ValueError:
+                break
+            i += 2
+            
+            value = payload[i:i+length]
+            i += length
+            
+            if tag in ["26", "62"]:
+                data[tag] = self._parse_tlv(value) 
+            else:
+                data[tag] = value
+                
+        return data
+
+    def _analyze_emv_data(self, data):
+        """Transforma os IDs numéricos em inteligência legível."""
+        
+        if "59" in data:
+            self.add_evidence("Beneficiário", data["59"], "high")
+            
+        if "60" in data:
+            self.add_evidence("Cidade", data["60"], "medium")
+            
+        if "26" in data and isinstance(data["26"], dict):
+            merchant_info = data["26"]
+            if "01" in merchant_info:
+                key = merchant_info["01"]
+                key_type = "Aleatória"
+                if "@" in key: key_type = "E-mail"
+                elif len(key) == 11 and key.isdigit(): key_type = "CPF"
+                elif len(key) == 14 and key.isdigit(): key_type = "CNPJ"
+                elif len(key) > 20: key_type = "EVP (Aleatória)"
+                
+                self.add_evidence("Chave Pix", f"{key} ({key_type})", "high")
+            
+            if "02" in merchant_info:
+                self.add_evidence("Descrição/Mensagem", merchant_info["02"], "medium")
+
+        if "62" in data and isinstance(data["62"], dict):
+            if "05" in data["62"]:
+                self.add_evidence("ID Transação (TXID)", data["62"]["05"], "low")
