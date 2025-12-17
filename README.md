@@ -63,7 +63,7 @@ Integração com **Ollama (LLMs Locais)** para transformar dados técnicos (JSON
 
 1.  **Clone o repositório:**
     ```bash
-    git clone [https://github.com/SEU-USUARIO/anhanga.git](https://github.com/SEU-USUARIO/anhanga.git)
+    git clone [https://github.com/felipeluan20/anhanga.git](https://github.com/felipeluan20/anhanga.git)
     cd anhanga
     ```
 
