@@ -1,17 +1,24 @@
-# 🌿 ANHANGÁ
-```text
-       ▄▄▄       ███▄    █  ██░ ██  ▄▄▄       ███▄    █   ▄████  ▄▄▄       █
-      ▒████▄     ██ ▀█   █ ▓██░ ██▒▒████▄     ██ ▀█   █  ██▒ ▀█▒▒████▄    █
-      ▒██  ▀█▄  ▓██  ▀█ ██▒▒██▀▀██░▒██  ▀█▄  ▓██  ▀█ ██▒▒██░▄▄▄░▒██  ▀█▄
-      ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█ ░██ ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█  ██▓░██▄▄▄▄██
-       ▓█   ▓██▒▒██░   ▓██░░▓█▒░██▓ ▓█   ▓██▒▒██░   ▓██░░▒▓███▀▒ ▓█   ▓██▒
-       ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ░▒   ▒  ▒▒   ▓▒█░
-```
-> **Financial Crime & Cyber Threat Intelligence Framework**
+<div align="center">
+  <img src="assets/logo.png" alt="Anhangá Logo" width="300">
+  <h1>ANHANGÁ</h1>
+  <p>
+    <b>Financial Crime & Cyber Threat Intelligence Framework</b>
+  </p>
 
-![Version](https://img.shields.io/badge/version-2.1-green)
-![Python](https://img.shields.io/badge/python-3.10+-blue)
-![Focus](https://img.shields.io/badge/focus-Defense%20%26%20Intelligence-red)
+  <p>
+    <a href="https://github.com/seu-usuario/anhanga">
+      <img src="https://img.shields.io/badge/version-2.1-green" alt="Version">
+    </a>
+    <a href="https://python.org">
+      <img src="https://img.shields.io/badge/python-3.10+-blue" alt="Python">
+    </a>
+    <a href="#">
+      <img src="https://img.shields.io/badge/focus-Defense%20%26%20Intelligence-red" alt="Focus">
+    </a>
+  </p>
+</div>
+
+<br />
 
 ## 👹 A Origem & O Propósito
 
