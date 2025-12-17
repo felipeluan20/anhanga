@@ -1,10 +1,9 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Anhangá Logo" width="300">
   <h1>ANHANGÁ</h1>
   <p>
     <b>Financial Crime & Cyber Threat Intelligence Framework</b>
   </p>
-
+ <img src="assets/logo.png" alt="Anhangá Logo" width="450">
   <p>
     <a href="https://github.com/seu-usuario/anhanga">
       <img src="https://img.shields.io/badge/version-2.1-green" alt="Version">
